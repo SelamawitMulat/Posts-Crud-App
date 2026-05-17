@@ -1,15 +1,27 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../domain/repository/post_repository.dart';
-import '../../domain/entities/post.dart';
+import 'package:posts_crud_app/features/posts/domain/entities/post.dart';
+import 'package:posts_crud_app/features/posts/domain/usecases/create_post.dart';
+import 'package:posts_crud_app/features/posts/domain/usecases/delete_post.dart';
+import 'package:posts_crud_app/features/posts/domain/usecases/get_posts.dart';
+import 'package:posts_crud_app/features/posts/domain/usecases/update_post.dart';
 import 'post_event.dart';
 import 'post_state.dart';
 
 class PostBloc extends Bloc<PostEvent, PostState> {
-  final PostRepository repository;
+  final FetchPostsUseCase getPostsUseCase;
+  final CreatePostUseCase createPostUseCase;
+  final UpdatePostUseCase updatePostUseCase;
+  final DeletePostUseCase deletePostUseCase;
+
   List<Post> _currentPosts = [];
   String _currentSearchQuery = '';
 
-  PostBloc({required this.repository}) : super(const PostLoading()) {
+  PostBloc({
+    required this.getPostsUseCase,
+    required this.createPostUseCase,
+    required this.updatePostUseCase,
+    required this.deletePostUseCase,
+  }) : super(const PostLoading()) {
     on<LoadPosts>(_onLoadPosts);
     on<AddPost>(_onAddPost);
     on<UpdatePost>(_onUpdatePost);
@@ -25,7 +37,9 @@ class PostBloc extends Bloc<PostEvent, PostState> {
         userName: state.userName,
         userEmail: state.userEmail,
         userBio: state.userBio));
-    final (failure, posts) = await repository.getPosts();
+
+    final (failure, posts) = await getPostsUseCase.execute();
+
     if (failure != null) {
       emit(PostError(failure,
           isDarkMode: state.isDarkMode,
@@ -51,9 +65,8 @@ class PostBloc extends Bloc<PostEvent, PostState> {
   }
 
   Future<void> _onAddPost(AddPost event, Emitter<PostState> emit) async {
-    final (failure, createdPost) = await repository.createPost(event.post);
+    final (failure, createdPost) = await createPostUseCase.execute(event.post);
     if (failure == null && createdPost != null) {
-      // CRITICAL FIX: Instantly add the backend object to local memory arrays
       _currentPosts.insert(0, createdPost);
       emit(PostLoaded(List.from(_currentPosts),
           searchQuery: _currentSearchQuery,
@@ -71,13 +84,12 @@ class PostBloc extends Bloc<PostEvent, PostState> {
   }
 
   Future<void> _onUpdatePost(UpdatePost event, Emitter<PostState> emit) async {
-    final (failure, updatedPost) = await repository.modifyPost(event.post);
+    final (failure, updatedPost) = await updatePostUseCase.execute(event.post);
     if (failure == null && updatedPost != null) {
       final index = _currentPosts.indexWhere((p) => p.id == updatedPost.id);
       if (index != -1) {
         _currentPosts[index] = updatedPost;
       }
-      // CRITICAL FIX: Emit a completely brand new deep-copied list reference context
       emit(PostLoaded(List.from(_currentPosts),
           searchQuery: _currentSearchQuery,
           isDarkMode: state.isDarkMode,
@@ -94,7 +106,7 @@ class PostBloc extends Bloc<PostEvent, PostState> {
   }
 
   Future<void> _onDeletePost(DeletePost event, Emitter<PostState> emit) async {
-    final (failure, success) = await repository.removePost(event.id);
+    final (failure, success) = await deletePostUseCase.execute(event.id);
     if (failure == null && success == true) {
       _currentPosts.removeWhere((p) => p.id == event.id);
       if (_currentPosts.isEmpty) {

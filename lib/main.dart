@@ -1,48 +1,82 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-// Import Core Layer Utilities
+// Core Utilities
 import 'package:posts_crud_app/core/api/dio_client.dart';
 
-// Import Clean Architecture Layers
-import 'features/posts/data/datasource/post_remote_data_source.dart';
-import 'features/posts/data/repository/post_repository_impl.dart';
-import 'features/posts/presentation/bloc/post_bloc.dart';
-import 'features/posts/presentation/bloc/post_event.dart';
-import 'features/posts/presentation/bloc/post_state.dart'; // Added to ensure PostState is found
-import 'features/posts/presentation/pages/home_page.dart';
+// Data Layer Dependencies
+import 'package:posts_crud_app/features/posts/data/datasource/post_remote_data_source.dart';
+import 'package:posts_crud_app/features/posts/data/repository/post_repository_impl.dart';
+
+// Domain Layer Use Cases
+import 'package:posts_crud_app/features/posts/domain/usecases/create_post.dart';
+import 'package:posts_crud_app/features/posts/domain/usecases/delete_post.dart';
+import 'package:posts_crud_app/features/posts/domain/usecases/get_posts.dart';
+import 'package:posts_crud_app/features/posts/domain/usecases/update_post.dart';
+
+// Presentation Layer State Management & Pages
+import 'package:posts_crud_app/features/posts/presentation/bloc/post_bloc.dart';
+import 'package:posts_crud_app/features/posts/presentation/bloc/post_event.dart';
+import 'package:posts_crud_app/features/posts/presentation/bloc/post_state.dart';
+import 'package:posts_crud_app/features/posts/presentation/pages/home_page.dart';
 
 void main() {
-  // 1. Initialize our centralized Core Network client
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 1. Initialize centralized Core Network client
   final DioClient coreDioClient = DioClient();
 
-  // 2. Build out data-layer dependencies
+  // 2. Build data-layer dependencies
+  // FIXED HERE: Reverted back to the exact parameter label (dio: coreDioClient.dio) your class constructor expects!
   final PostRemoteDataSource remoteDataSource =
       PostRemoteDataSource(dio: coreDioClient.dio);
   final PostRepositoryImpl postRepository =
       PostRepositoryImpl(remoteDataSource: remoteDataSource);
 
-  runApp(PostsCrudApp(repository: postRepository));
+  // 3. Instantiate Domain Layer Use Cases
+  final getPostsUseCase = FetchPostsUseCase(postRepository);
+  final createPostUseCase = CreatePostUseCase(postRepository);
+  final updatePostUseCase = UpdatePostUseCase(postRepository);
+  final deletePostUseCase = DeletePostUseCase(postRepository);
+
+  runApp(PostsCrudApp(
+    getPostsUseCase: getPostsUseCase,
+    createPostUseCase: createPostUseCase,
+    updatePostUseCase: updatePostUseCase,
+    deletePostUseCase: deletePostUseCase,
+  ));
 }
 
 class PostsCrudApp extends StatelessWidget {
-  final PostRepositoryImpl repository;
+  final FetchPostsUseCase getPostsUseCase;
+  final CreatePostUseCase createPostUseCase;
+  final UpdatePostUseCase updatePostUseCase;
+  final DeletePostUseCase deletePostUseCase;
 
-  const PostsCrudApp({super.key, required this.repository});
+  const PostsCrudApp({
+    super.key,
+    required this.getPostsUseCase,
+    required this.createPostUseCase,
+    required this.updatePostUseCase,
+    required this.deletePostUseCase,
+  });
 
   @override
   Widget build(BuildContext context) {
-    // FIX: Provide the BLoC at the very top so the BlocBuilder inside can access it safely
     return BlocProvider<PostBloc>(
-      create: (context) => PostBloc(repository: repository)..add(LoadPosts()),
+      create: (context) => PostBloc(
+        getPostsUseCase: getPostsUseCase,
+        createPostUseCase: createPostUseCase,
+        updatePostUseCase: updatePostUseCase,
+        deletePostUseCase: deletePostUseCase,
+      )..add(LoadPosts()),
       child: BlocBuilder<PostBloc, PostState>(
         buildWhen: (previous, current) =>
             previous.isDarkMode != current.isDarkMode,
         builder: (context, state) {
           return MaterialApp(
-            title: 'Clean CRUD App',
+            title: 'Crud Posts App',
             debugShowCheckedModeBanner: false,
-            // FIX: Dynamically switch the overall app brightness based on global BLoC state toggles
             theme: ThemeData(
               useMaterial3: true,
               colorSchemeSeed: const Color(0xFF2F80ED),
