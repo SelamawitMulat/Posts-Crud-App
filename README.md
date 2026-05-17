@@ -1,12 +1,4 @@
-Here is your fully updated, polished **`README.md`** file.
 
-To keep the document clean, compact, and highly professional for your teacher, all your screenshots have been consolidated into a single **interactive dropdown menu** (using HTML `<details>` and `<summary>` tags). When your teacher clicks to expand a category, they will see a clean grid layout of your screenshots. Clicking on any individual image will open the full high-resolution destination file path instantly!
-
----
-
-### 📄 `README.md`
-
-```markdown
 # Crud Posts App
 
 ## 👤 Student Information
