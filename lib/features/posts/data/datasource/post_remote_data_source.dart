@@ -1,74 +1,35 @@
 import 'package:dio/dio.dart';
-import '../../../../core/api/dio_client.dart';
-import '../../../../core/error/exceptions.dart';
-import '../models/post_model.dart';
+import '../../../../core/utils/constants.dart';
+import '../../domain/entities/post.dart';
 
-abstract class PostRemoteDataSource {
-  Future<List<PostModel>> getAllPosts();
-  Future<PostModel> addPost(PostModel post);
-  Future<PostModel> updatePost(PostModel post);
-  Future<void> deletePost(int id);
-}
+class PostRemoteDataSource {
+  final Dio dio;
 
-class PostRemoteDataSourceImpl implements PostRemoteDataSource {
-  final DioClient client;
+  PostRemoteDataSource({required this.dio});
 
-  PostRemoteDataSourceImpl({required this.client});
-
-  @override
-  Future<List<PostModel>> getAllPosts() async {
-    try {
-      final response = await client.dio.get('/posts');
-      if (response.statusCode == 200) {
-        final List list = response.data as List;
-        return list.map((json) => PostModel.fromJson(json)).toList();
-      } else {
-        throw ServerException('Failed to load posts from server.');
-      }
-    } on DioException catch (e) {
-      throw ServerException(e.message ?? 'Network collection protocol error.');
-    }
+  // 1. READ
+  Future<Response> getPosts() async {
+    return await dio.get(AppConstants.postsEndpoint);
   }
 
-  @override
-  Future<PostModel> addPost(PostModel post) async {
-    try {
-      final response = await client.dio.post('/posts', data: post.toJson());
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        return PostModel.fromJson(response.data);
-      } else {
-        throw ServerException('Failed to generate resource on backend.');
-      }
-    } on DioException catch (e) {
-      throw ServerException(e.message ?? 'Failed to submit post data.');
-    }
+  // 2. CREATE
+  Future<Response> createPost(Post post) async {
+    return await dio.post(
+      AppConstants.postsEndpoint,
+      data: post.toJson(),
+    );
   }
 
-  @override
-  Future<PostModel> updatePost(PostModel post) async {
-    try {
-      final response =
-          await client.dio.put('/posts/${post.id}', data: post.toJson());
-      if (response.statusCode == 200) {
-        return PostModel.fromJson(response.data);
-      } else {
-        throw ServerException('Failed to execute target put update lifecycle.');
-      }
-    } on DioException catch (e) {
-      throw ServerException(e.message ?? 'Server sync failed during update.');
-    }
+  // 3. UPDATE
+  Future<Response> modifyPost(Post post) async {
+    return await dio.put(
+      '${AppConstants.postsEndpoint}/${post.id}',
+      data: post.toJson(),
+    );
   }
 
-  @override
-  Future<void> deletePost(int id) async {
-    try {
-      final response = await client.dio.delete('/posts/$id');
-      if (response.statusCode != 200 && response.statusCode != 204) {
-        throw ServerException('Destruction request declined by target host.');
-      }
-    } on DioException catch (e) {
-      throw ServerException(
-          e.message ?? 'Network execution failure during deletion.');
-    }
+  // 4. DELETE
+  Future<Response> removePost(String id) async {
+    return await dio.delete('${AppConstants.postsEndpoint}/$id');
   }
 }

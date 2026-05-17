@@ -1,9 +1,7 @@
-import '../../../../core/error/exceptions.dart';
-import '../../../../core/error/failures.dart';
+import 'package:dio/dio.dart';
 import '../../domain/entities/post.dart';
 import '../../domain/repository/post_repository.dart';
 import '../datasource/post_remote_data_source.dart';
-import '../models/post_model.dart';
 
 class PostRepositoryImpl implements PostRepository {
   final PostRemoteDataSource remoteDataSource;
@@ -11,44 +9,68 @@ class PostRepositoryImpl implements PostRepository {
   PostRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<(Failure?, List<Post>?)> getPosts() async {
+  Future<(String?, List<Post>?)> getPosts() async {
     try {
-      final remotePosts = await remoteDataSource.getAllPosts();
-      return (null, remotePosts);
-    } on ServerException catch (e) {
-      return (ServerFailure(e.message), null);
+      final response = await remoteDataSource.getPosts();
+      if (response.statusCode == 200 && response.data is List) {
+        final List jsonList = response.data;
+        final posts = jsonList.map((json) => Post.fromJson(json)).toList();
+        return (null, posts);
+      }
+      return ('Unexpected response format from backend server.', null);
+    } on DioException catch (e) {
+      return (
+        e.message ?? 'Failed to catch remote server payload links.',
+        null
+      );
     }
   }
 
   @override
-  Future<(Failure?, Post?)> createPost(Post post) async {
+  Future<(String?, Post?)> createPost(Post post) async {
     try {
-      final model = PostModel.fromEntity(post);
-      final result = await remoteDataSource.addPost(model);
-      return (null, result);
-    } on ServerException catch (e) {
-      return (ServerFailure(e.message), null);
+      final response = await remoteDataSource.createPost(post);
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        return (null, Post.fromJson(response.data));
+      }
+      return (
+        'Server dropped remote collection validation authorization.',
+        null
+      );
+    } on DioException catch (e) {
+      return (
+        e.message ?? 'Could not append cloud database entity records.',
+        null
+      );
     }
   }
 
   @override
-  Future<(Failure?, Post?)> modifyPost(Post post) async {
+  Future<(String?, Post?)> modifyPost(Post post) async {
     try {
-      final model = PostModel.fromEntity(post);
-      final result = await remoteDataSource.updatePost(model);
-      return (null, result);
-    } on ServerException catch (e) {
-      return (ServerFailure(e.message), null);
+      final response = await remoteDataSource.modifyPost(post);
+      if (response.statusCode == 200) {
+        return (null, Post.fromJson(response.data));
+      }
+      return ('Server rejected updating execution metadata paths.', null);
+    } on DioException catch (e) {
+      return (
+        e.message ?? 'Downstream modifications synchronization failed.',
+        null
+      );
     }
   }
 
   @override
-  Future<(Failure?, bool?)> removePost(int id) async {
+  Future<(String?, bool?)> removePost(String id) async {
     try {
-      await remoteDataSource.deletePost(id);
-      return (null, true);
-    } on ServerException catch (e) {
-      return (ServerFailure(e.message), null);
+      final response = await remoteDataSource.removePost(id);
+      if (response.statusCode == 200) {
+        return (null, true);
+      }
+      return ('Server dropped records removal operation permissions.', null);
+    } on DioException catch (e) {
+      return (e.message ?? 'Purge execution pipeline sequence dropped.', null);
     }
   }
 }

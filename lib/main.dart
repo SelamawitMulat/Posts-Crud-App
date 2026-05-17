@@ -1,65 +1,66 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'core/api/dio_client.dart';
+
+// Import Core Layer Utilities
+import 'package:posts_crud_app/core/api/dio_client.dart';
+
+// Import Clean Architecture Layers
 import 'features/posts/data/datasource/post_remote_data_source.dart';
 import 'features/posts/data/repository/post_repository_impl.dart';
 import 'features/posts/presentation/bloc/post_bloc.dart';
 import 'features/posts/presentation/bloc/post_event.dart';
+import 'features/posts/presentation/bloc/post_state.dart'; // Added to ensure PostState is found
 import 'features/posts/presentation/pages/home_page.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
+  // 1. Initialize our centralized Core Network client
+  final DioClient coreDioClient = DioClient();
 
-  // Instantiate network stack and layers using Clean Architecture rules
-  final dioClient = DioClient();
-  final remoteDataSource = PostRemoteDataSourceImpl(client: dioClient);
-  final postRepository = PostRepositoryImpl(remoteDataSource: remoteDataSource);
+  // 2. Build out data-layer dependencies
+  final PostRemoteDataSource remoteDataSource =
+      PostRemoteDataSource(dio: coreDioClient.dio);
+  final PostRepositoryImpl postRepository =
+      PostRepositoryImpl(remoteDataSource: remoteDataSource);
 
-  runApp(
-    MultiRepositoryProvider(
-      providers: [
-        RepositoryProvider.value(value: postRepository),
-      ],
-      child: BlocProvider(
-        create: (context) =>
-            PostBloc(repository: postRepository)..add(LoadPosts()),
-        child: const PostsCrudApp(),
-      ),
-    ),
-  );
+  runApp(PostsCrudApp(repository: postRepository));
 }
 
 class PostsCrudApp extends StatelessWidget {
-  const PostsCrudApp({super.key});
+  final PostRepositoryImpl repository;
+
+  const PostsCrudApp({super.key, required this.repository});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Posts CRUD App',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        primaryColor: const Color(0xFF2F80ED),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2F80ED),
-          primary: const Color(0xFF2F80ED),
-          surface: Colors.white,
-        ),
-        scaffoldBackgroundColor: Colors.white,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          iconTheme: IconThemeData(color: Color(0xFF1B254B)),
-          titleTextStyle: TextStyle(
-            color: Color(0xFF1B254B),
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        cardColor: Colors.white,
+    // FIX: Provide the BLoC at the very top so the BlocBuilder inside can access it safely
+    return BlocProvider<PostBloc>(
+      create: (context) => PostBloc(repository: repository)..add(LoadPosts()),
+      child: BlocBuilder<PostBloc, PostState>(
+        buildWhen: (previous, current) =>
+            previous.isDarkMode != current.isDarkMode,
+        builder: (context, state) {
+          return MaterialApp(
+            title: 'Clean CRUD App',
+            debugShowCheckedModeBanner: false,
+            // FIX: Dynamically switch the overall app brightness based on global BLoC state toggles
+            theme: ThemeData(
+              useMaterial3: true,
+              colorSchemeSeed: const Color(0xFF2F80ED),
+              brightness: state.isDarkMode ? Brightness.dark : Brightness.light,
+              appBarTheme: AppBarTheme(
+                backgroundColor:
+                    state.isDarkMode ? const Color(0xFF131A32) : Colors.white,
+                elevation: 0,
+                iconTheme: IconThemeData(
+                  color:
+                      state.isDarkMode ? Colors.white : const Color(0xFF1B254B),
+                ),
+              ),
+            ),
+            home: const HomePage(),
+          );
+        },
       ),
-      home: const HomePage(),
     );
   }
 }

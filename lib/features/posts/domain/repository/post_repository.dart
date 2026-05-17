@@ -1,9 +1,8 @@
-import '../../../../core/error/failures.dart';
 import '../entities/post.dart';
 
 abstract class PostRepository {
-  Future<(Failure?, List<Post>?)> getPosts();
-  Future<(Failure?, Post?)> createPost(Post post);
-  Future<(Failure?, Post?)> modifyPost(Post post);
-  Future<(Failure?, bool?)> removePost(int id);
+  Future<(String? failure, List<Post>? posts)> getPosts();
+  Future<(String? failure, Post? post)> createPost(Post post);
+  Future<(String? failure, Post? post)> modifyPost(Post post);
+  Future<(String? failure, bool? success)> removePost(String id);
 }

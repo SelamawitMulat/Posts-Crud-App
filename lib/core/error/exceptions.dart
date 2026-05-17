@@ -1,6 +1,11 @@
+// Native system runtime exceptions thrown during data collection
 class ServerException implements Exception {
   final String message;
-  ServerException([this.message = 'An unexpected server error occurred.']);
+  const ServerException(
+      [this.message = 'An unexpected server error occurred.']);
 }
 
-class CacheException implements Exception {}
+class CacheException implements Exception {
+  final String message;
+  const CacheException([this.message = 'Local cache sync operation dropped.']);
+}
